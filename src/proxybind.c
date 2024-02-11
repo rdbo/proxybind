@@ -29,23 +29,61 @@ ptrace_read(pid_t pid, void *buf, long addr, size_t size)
 	long data;
 	const size_t data_size = sizeof(data);
 	size_t read_diff;
+	size_t diff;
 
 	for (bytes_read = 0; bytes_read < size; bytes_read += read_diff) {
+		diff = size - bytes_read;
+
 		errno = 0;
 		data = ptrace(PTRACE_PEEKDATA, pid, addr + bytes_read, NULL);
 		if (data == -1 && errno)
 			break;
 		
-		if (size - bytes_read >= data_size) {
+		if (diff >= data_size) {
 			read_diff = data_size;
 		} else {
-			read_diff = size;
+			read_diff = diff;
 		}
 
 		memcpy(&databuf[bytes_read], &data, data_size);
 	}
 
 	return bytes_read;
+}
+
+size_t
+ptrace_write(pid_t pid, long addr, void *src, size_t size)
+{
+	char *databuf = (char *)src;
+	size_t bytes_written;
+	long data;
+	const size_t data_size = sizeof(data);
+	size_t write_diff;
+	size_t diff;
+	long destaddr;
+
+	for (bytes_written = 0; bytes_written < size; bytes_written += write_diff) {
+		diff = size - bytes_written;
+		destaddr = addr + bytes_written;
+		if (diff >= data_size) {
+			write_diff = data_size;
+		} else {
+			/* Read missing aligned bytes for a ptrace write into the 
+			 * data before writing */
+			errno = 0;
+			data = ptrace(PTRACE_PEEKDATA, pid, destaddr, NULL);
+			if (data == -1 && errno)
+				break;
+
+			write_diff = diff;
+		}
+		memcpy(&data, &databuf[bytes_written], write_diff);
+		
+		if (ptrace(PTRACE_POKEDATA, pid, destaddr, data))
+			break;
+	}
+
+	return bytes_written;
 }
 
 void
@@ -78,15 +116,28 @@ syscall_listener(pid_t pid)
 
 			if (ptrace_read(pid, (void *)&sockaddr, (long)reg, sizeof(sockaddr)) != sizeof(sockaddr)) {
 				perror("[!] failed to read 'struct sockaddr' from tracee");
+				continue;
 			}
+
+			/* Intercept only IPv4 connections */
+			if (sockaddr.sa_family != AF_INET)
+				continue;
 
 			sockaddr_in = (struct sockaddr_in *)&sockaddr;
 
 			printf("[*] sockaddr family: %hu\n", sockaddr_in->sin_family);
-			printf("[*] sockaddr s_addr: %u\n", ((struct sockaddr_in *)&sockaddr)->sin_addr.s_addr);
 
 			inet_ntop(AF_INET, &sockaddr_in->sin_addr, ipv4, sizeof(ipv4));
 			printf("[*] sockaddr ipv4: %s\n", ipv4);
+
+			printf("[*] rerouting socket to proxy address...\n");
+			sockaddr_in->sin_addr.s_addr = inet_addr("127.0.0.1");
+			sockaddr_in->sin_port = htons(6969);
+			if (ptrace_write(pid, (long)reg, (void *)&sockaddr, sizeof(sockaddr)) != sizeof(sockaddr)) {
+				perror("[!] failed to reroute socket");
+				continue;
+			}
+			printf("[*] socket rerouted successfully\n");
 		}
 
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
@@ -117,6 +168,7 @@ void dummy_client()
 	server.sin_port = htons(1337);
 
 	if (connect(sockfd, (struct sockaddr *)&server, sizeof(server))) {
+		printf("client socket port after connect: %d\n", server.sin_port);
 		die("failed to connect to server");
 	}
 
