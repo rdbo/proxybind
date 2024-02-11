@@ -90,10 +90,15 @@ void
 syscall_listener(pid_t pid)
 {
 	int status;
-	reg_t reg;
+	reg_t reg, stack;
 	struct sockaddr sockaddr;
 	struct sockaddr_in *sockaddr_in;
 	char ipv4[INET_ADDRSTRLEN];
+	int sockfd;
+	struct sockaddr orig_sockaddrs[256] = { 0 };
+	unsigned char *buf;
+	size_t bufsize;
+	size_t size;
 
 	for (;;) {
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
@@ -106,7 +111,8 @@ syscall_listener(pid_t pid)
 
 		if (reg == SYS_connect) {
 			reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RDI, NULL);
-			printf("[*] tracee attempted to connect (sockfd: %d)\n", (int)reg);
+			sockfd = (int)reg;
+			printf("[*] tracee attempted to connect (sockfd: %d)\n", sockfd);
 
 			reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RDX, NULL);
 			printf("[*] sockaddr len: %zu\n", reg);
@@ -123,6 +129,8 @@ syscall_listener(pid_t pid)
 			if (sockaddr.sa_family != AF_INET)
 				continue;
 
+			orig_sockaddrs[sockfd] = sockaddr;
+
 			sockaddr_in = (struct sockaddr_in *)&sockaddr;
 
 			printf("[*] sockaddr family: %hu\n", sockaddr_in->sin_family);
@@ -138,6 +146,32 @@ syscall_listener(pid_t pid)
 				continue;
 			}
 			printf("[*] socket rerouted successfully\n");
+		} else if (reg == SYS_sendto) {
+			reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RDI, NULL);
+			sockfd = (int)reg;
+			printf("[*] tracee attempted to send data through socket (sockfd: %d)\n", sockfd);
+
+			size = (size_t)ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RDX);
+			bufsize = sizeof(sockfd) + sizeof(struct sockaddr) + sizeof(size) + size; /* Reverse space for sockfd + original sockaddr + msg size + message buffer */
+			buf = malloc(bufsize);
+
+			/* Create new data */
+			memcpy(buf, &sockfd, sizeof(sockfd));
+			memcpy(&buf[sizeof(sockfd)], &orig_sockaddrs[sockfd], sizeof(struct sockaddr));
+			memcpy(&buf[sizeof(sockfd) + sizeof(struct sockaddr)], &size, sizeof(size));
+			/* Read message  */
+			reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RSI, NULL);
+			ptrace_read(pid, &buf[sizeof(sockfd) + sizeof(struct sockaddr) + sizeof(size)], reg, size);
+
+			/* Write new data payload on the stack (unmodified by system calls) */
+			stack = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RSP, NULL);
+			reg = stack - bufsize;
+			ptrace_write(pid, reg, buf, bufsize);
+
+			/* Modify syscall parameter */
+			ptrace(PTRACE_POKEUSER, pid, sizeof(long) * RSI, reg);
+			ptrace(PTRACE_POKEUSER, pid, sizeof(long) * RDX, bufsize);
+			/* TODO: Spoof syscall return value */
 		}
 
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);

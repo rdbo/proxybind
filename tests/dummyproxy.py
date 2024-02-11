@@ -16,9 +16,14 @@ while True:
     print("listening...")
     conn, addr = sock.accept()
 
-    msg = conn.recv(256).decode()
+    data = conn.recv(4 + 16 + 8) # Read only proxybind header: sockfd (sz = 4), sockaddr (sz = 16), size (sz = 8)
+    print(f"received proxybind data header from client: {data}")
 
-    print(f"intercepted message from client: {msg}")
+    msgsize = int.from_bytes(data[20:], "little")
+    print(f"client message size: {msgsize}")
+
+    msg = conn.recv(msgsize).decode()
+    print(f"client message: {msg}")
 
     new_msg = "bada"
     print(f"sending modified message to server: {new_msg}")
