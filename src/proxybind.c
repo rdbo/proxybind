@@ -150,7 +150,8 @@ syscall_listener(pid_t pid)
 	}
 }
 
-void dummy_client()
+void
+dummy_client()
 {
 	int sockfd;
 	struct sockaddr_in server;
