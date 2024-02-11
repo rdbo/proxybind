@@ -21,7 +21,7 @@ while True:
     print(f"intercepted message from client: {msg}")
 
     new_msg = "bada"
-    print(f"sending modified message to server: ", msg)
+    print(f"sending modified message to server: {new_msg}")
 
     try:
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
