@@ -1,5 +1,5 @@
 # proxybind
-A failproof alternative to proxychains
+### A failproof alternative to proxychains
 
 ## What's wrong with proxychains?
 The problem with proxychains is that it uses `LD_PRELOAD` and "hooks" the libc functions related to socket functionality in order to intercept them and put a proxies in the middle.
@@ -23,6 +23,8 @@ Because it intercepts system calls directly, it is practically impossible for a 
 they still have to tell the operating system to create a socket, send data, etc, which requires going through the system calls.
 
 This means that proxybind should work with basically every program.
+
+It's worth mentioning though, that intercepting system calls is an expensive operation. So depending on your use case, it is still worth considering proxychains.
 
 ## License
 This project is licensed under the `AGPL-3.0` license.
