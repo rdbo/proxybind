@@ -19,6 +19,16 @@ while True:
     data = conn.recv(4 + 16 + 8) # Read only proxybind header: sockfd (sz = 4), sockaddr (sz = 16), size (sz = 8)
     print(f"received proxybind data header from client: {data}")
 
+    family = int.from_bytes(data[4:6], "little")
+    port = int.from_bytes(data[6:8])
+    ipaddr = data[8:12]
+    print(f"sockaddr family: {family}")
+    print(f"sockaddr port: {port}")
+    print(f"sockaddr ipaddr: {ipaddr}")
+
+    ipaddr = socket.inet_ntoa(ipaddr)
+    print(f"parsed ipaddr: {ipaddr}")
+
     msgsize = int.from_bytes(data[20:], "little")
     print(f"client message size: {msgsize}")
 
