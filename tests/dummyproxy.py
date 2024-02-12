@@ -32,11 +32,9 @@ while True:
     msgsize = int.from_bytes(data[20:], "little")
     print(f"client message size: {msgsize}")
 
-    msg = conn.recv(msgsize).decode()
+    msgdata = conn.recv(msgsize)
+    msg = msgdata.decode()
     print(f"client message: {msg}")
-
-    new_msg = "bada"
-    print(f"sending modified message to server: {new_msg}")
 
     try:
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -44,6 +42,9 @@ while True:
     except:
         print("failed to connect to server")
         exit(1)
+    """
+    new_msg = "bada"
+    print(f"sending modified message to server: {new_msg}")
 
     server_sock.send(new_msg.encode())
     msg = server_sock.recv(256).decode()
@@ -52,6 +53,13 @@ while True:
     new_msg = "bing"
     print(f"sending modified message to client: {new_msg}")
     conn.send(new_msg.encode())
+    """
+
+    print("sending original message to the server")
+    server_sock.send(msgdata)
+
+    print("sending original response to the client")
+    conn.send(server_sock.recv(2048))
 
     print(f"disconnecting from server...")
     server_sock.close()
