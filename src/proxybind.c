@@ -91,6 +91,7 @@ syscall_listener(pid_t pid)
 {
 	int status;
 	reg_t reg, stack;
+	int syscall_num;
 	struct sockaddr sockaddr;
 	struct sockaddr_in *sockaddr_in;
 	char ipv4[INET_ADDRSTRLEN];
@@ -107,7 +108,8 @@ syscall_listener(pid_t pid)
 			break;
 		
 		reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * ORIG_RAX, NULL);
-		printf("[*] caught syscall: %zu\n", reg);
+		syscall_num = (int)reg;
+		printf("[*] caught syscall: %d\n", syscall_num);
 
 		if (reg == SYS_connect) {
 			reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RDI, NULL);
@@ -171,13 +173,29 @@ syscall_listener(pid_t pid)
 			/* Modify syscall parameter */
 			ptrace(PTRACE_POKEUSER, pid, sizeof(long) * RSI, reg);
 			ptrace(PTRACE_POKEUSER, pid, sizeof(long) * RDX, bufsize);
-			/* TODO: Spoof syscall return value */
 		}
 
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 		waitpid(pid, &status, 0);
 		if (WIFEXITED(status))
 			break;
+
+		/*
+		 * Spoof syscall return value - since we are modifying the write to the sockfd, we need
+		 * to spoof the return value, which is the amount of bytes sent
+		 */
+		if (syscall_num == SYS_sendto) {
+			reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RAX, NULL);
+			printf("[*] sendto return value: %zu (expected: %zu)\n", reg, bufsize);
+
+			if (reg == bufsize) {
+				reg = size;
+			} else {
+				reg = 0;
+			}
+
+			ptrace(PTRACE_POKEUSER, pid, sizeof(long) * RAX, reg);
+		}
 		
 		reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RAX, NULL);
 		printf("[*] syscall ret: %zu\n", reg);
@@ -190,6 +208,7 @@ dummy_client()
 	int sockfd;
 	struct sockaddr_in server;
 	char buf[5] = { 0 };
+	ssize_t nbytes;
 	
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd == -1) {
@@ -207,9 +226,10 @@ dummy_client()
 		die("failed to connect to server");
 	}
 
-	if (send(sockfd, "ping", 4, 0) == -1) {
+	if ((nbytes = send(sockfd, "ping", 4, 0)) == -1) {
 		die("failed to send message to the server");
 	}
+	printf("sent '%zd' bytes to the server (expected: 4)\n", nbytes);
 
 	if (recv(sockfd, buf, sizeof(buf) - sizeof(buf[0]), 0) <= 0) {
 		die("failed to receive message from the server");
