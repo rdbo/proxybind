@@ -20,16 +20,8 @@ void
 syscall_listener(pid_t pid)
 {
 	int status;
-	reg_t reg, stack;
+	reg_t reg;
 	int syscall_num;
-	struct sockaddr sockaddr;
-	struct sockaddr_in *sockaddr_in;
-	char ipv4[INET_ADDRSTRLEN];
-	int sockfd;
-	struct sockaddr orig_sockaddrs[256] = { 0 };
-	unsigned char *buf;
-	size_t bufsize;
-	size_t size;
 	struct user_regs_struct regs;
 
 	for (;;) {
