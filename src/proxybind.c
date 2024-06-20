@@ -30,6 +30,7 @@ syscall_listener(pid_t pid)
 	unsigned char *buf;
 	size_t bufsize;
 	size_t size;
+	struct user_regs_struct regs;
 
 	for (;;) {
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
@@ -41,10 +42,12 @@ syscall_listener(pid_t pid)
 		syscall_num = (int)reg;
 		log("[*] caught syscall: %d\n", syscall_num);
 
+		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+
 		/* Pre-syscall handlers */
 		switch (syscall_num) {
 		case SYS_socket:
-			pre_sys_socket(pid);
+			pre_sys_socket(pid, (int)regs.rsi, (int)regs.rdi, (int)regs.rdx);
 			break;
 		}
 
@@ -54,15 +57,15 @@ syscall_listener(pid_t pid)
 		if (WIFEXITED(status))
 			break;
 
+		reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RAX, NULL);
+		log("[*] syscall ret: %zu\n", reg);
+
 		/* Post-syscall handlers */
 		switch (syscall_num) {
 		case SYS_socket:
-			post_sys_socket(pid);
+			post_sys_socket(pid, (int)reg);
 			break;
 		}
-		
-		reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RAX, NULL);
-		log("[*] syscall ret: %zu\n", reg);
 	}
 }
 
