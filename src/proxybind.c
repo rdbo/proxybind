@@ -14,34 +14,33 @@
 #include "utils.h"
 #include "handlers.h"
 
-typedef uintmax_t reg_t;
-
 void
 syscall_listener(pid_t pid)
 {
 	int status;
-	reg_t reg;
 	int syscall_num;
 	struct user_regs_struct regs;
 
 	for (;;) {
+		/* Step to syscall */
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 		waitpid(pid, &status, 0);
 		if (WIFEXITED(status))
 			break;
-		
-		reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * ORIG_RAX, NULL);
-		syscall_num = (int)reg;
-		log("[*] caught syscall: %d\n", syscall_num);
 
 		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+		syscall_num = (int)regs.rax;
+		log("[*] caught syscall: %d\n", syscall_num);
 
 		/* Pre-syscall handlers */
 		switch (syscall_num) {
 		case SYS_socket:
-			pre_sys_socket(pid, (int)regs.rsi, (int)regs.rdi, (int)regs.rdx);
+			pre_sys_socket(pid, &regs);
 			break;
 		}
+
+		/* Update regs after pre-syscall handlers */
+		ptrace(PTRACE_SETREGS, pid, NULL, &regs);
 
 		/* Run syscall */
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
@@ -49,15 +48,18 @@ syscall_listener(pid_t pid)
 		if (WIFEXITED(status))
 			break;
 
-		reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RAX, NULL);
-		log("[*] syscall ret: %zu\n", reg);
+		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+		log("[*] syscall ret: %ld\n", regs.rax);
 
 		/* Post-syscall handlers */
 		switch (syscall_num) {
 		case SYS_socket:
-			post_sys_socket(pid, (int)reg);
+			post_sys_socket(pid, &regs);
 			break;
 		}
+
+		/* Update regs after post-syscall handlers */
+		ptrace(PTRACE_SETREGS, pid, NULL, &regs);
 	}
 }
 

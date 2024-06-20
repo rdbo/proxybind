@@ -3,6 +3,7 @@
 
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/user.h>
 #include <time.h>
 
 typedef struct proxybind_header_t {
@@ -14,9 +15,9 @@ typedef struct proxybind_header_t {
 } proxybind_header_t;
 
 void
-pre_sys_socket(pid_t pid, int domain, int type, int protocol);
+pre_sys_socket(pid_t pid, struct user_regs_struct *regs);
 
 void
-post_sys_socket(pid_t pid, int sockfd);
+post_sys_socket(pid_t pid, struct user_regs_struct *regs);
 
 #endif

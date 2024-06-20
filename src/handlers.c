@@ -1,18 +1,17 @@
 #include "handlers.h"
 #include "utils.h"
 #include <sys/ptrace.h>
-#include <sys/reg.h>
 
 void
-pre_sys_socket(pid_t pid, int domain, int type, int protocol)
+pre_sys_socket(pid_t pid, struct user_regs_struct *regs)
 {
-	log("[*] SYS_socket call: socket(%d, %d, %d)\n", domain, type, protocol);
+	log("[*] SYS_socket call: socket(%d, %d, %d)\n", (int)regs->rsi, (int)regs->rdi, (int)regs->rdx);
 	return;
 }
 
 void
-post_sys_socket(pid_t pid, int sockfd)
+post_sys_socket(pid_t pid, struct user_regs_struct *regs)
 {
-	log("[*] SYS_socket return: %d\n", sockfd);
+	log("[*] SYS_socket return: %d\n", (int)regs->rax);
 	return;
 }
