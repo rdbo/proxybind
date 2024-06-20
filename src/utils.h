@@ -4,7 +4,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-void die(const char *msg);
+#define log(...) fprintf(stderr, __VA_ARGS__)
+
+void
+die(const char *msg);
 
 size_t
 ptrace_read(pid_t pid, long addr, void *buf, size_t size);

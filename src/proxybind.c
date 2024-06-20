@@ -39,8 +39,9 @@ syscall_listener(pid_t pid)
 		
 		reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * ORIG_RAX, NULL);
 		syscall_num = (int)reg;
-		printf("[*] caught syscall: %d\n", syscall_num);
+		log("[*] caught syscall: %d\n", syscall_num);
 
+		/* Pre-syscall handlers */
 		switch (syscall_num) {
 		case SYS_socket:
 			pre_sys_socket(pid);
@@ -53,10 +54,7 @@ syscall_listener(pid_t pid)
 		if (WIFEXITED(status))
 			break;
 
-		/*
-		 * Spoof syscall return value - since we are modifying the write to the sockfd, we need
-		 * to spoof the return value, which is the amount of bytes sent
-		 */
+		/* Post-syscall handlers */
 		switch (syscall_num) {
 		case SYS_socket:
 			post_sys_socket(pid);
@@ -64,7 +62,7 @@ syscall_listener(pid_t pid)
 		}
 		
 		reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RAX, NULL);
-		printf("[*] syscall ret: %zu\n", reg);
+		log("[*] syscall ret: %zu\n", reg);
 	}
 }
 
@@ -83,7 +81,7 @@ main(int argc, char **argv)
 	if (pid == 0) {
 		char **program_argv = NULL;
 
-		printf("waiting for tracer...\n");
+		log("waiting for tracer...\n");
 		ptrace(PT_TRACE_ME, 0, NULL, NULL);
 		raise(SIGSTOP);
 
@@ -94,7 +92,7 @@ main(int argc, char **argv)
 		execve(argv[1], program_argv, NULL);
 	} else {
 		waitpid(pid, NULL, 0);
-		printf("tracer attached\n");
+		log("tracer attached\n");
 
 		syscall_listener(pid);
 	}
