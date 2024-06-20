@@ -22,7 +22,7 @@ void die(const char *msg)
 }
 
 size_t
-ptrace_read(pid_t pid, void *buf, long addr, size_t size)
+ptrace_read(pid_t pid, long addr, void *buf, size_t size)
 {
 	char *databuf = (char *)buf;
 	size_t bytes_read;
@@ -122,7 +122,7 @@ syscall_listener(pid_t pid)
 			reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RSI, NULL);
 			printf("[*] sockaddr pointer: %zx\n", reg);
 
-			if (ptrace_read(pid, (void *)&sockaddr, (long)reg, sizeof(sockaddr)) != sizeof(sockaddr)) {
+			if (ptrace_read(pid, (long)reg, (void *)&sockaddr, sizeof(sockaddr)) != sizeof(sockaddr)) {
 				perror("[!] failed to read 'struct sockaddr' from tracee");
 				continue;
 			}
@@ -163,7 +163,7 @@ syscall_listener(pid_t pid)
 			memcpy(&buf[sizeof(sockfd) + sizeof(struct sockaddr)], &size, sizeof(size));
 			/* Read message  */
 			reg = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RSI, NULL);
-			ptrace_read(pid, &buf[sizeof(sockfd) + sizeof(struct sockaddr) + sizeof(size)], reg, size);
+			ptrace_read(pid, reg, &buf[sizeof(sockfd) + sizeof(struct sockaddr) + sizeof(size)], size);
 
 			/* Write new data payload on the stack (unmodified by system calls) */
 			stack = ptrace(PTRACE_PEEKUSER, pid, sizeof(long) * RSP, NULL);
