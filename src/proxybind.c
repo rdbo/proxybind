@@ -45,7 +45,7 @@ ptrace_read(pid_t pid, long addr, void *buf, size_t size)
 			read_diff = diff;
 		}
 
-		memcpy(&databuf[bytes_read], &data, data_size);
+		memcpy(&databuf[bytes_read], &data, read_diff);
 	}
 
 	return bytes_read;
