@@ -3,6 +3,8 @@
 #include <sys/ptrace.h>
 #include <unordered_map>
 
+/// Cached information about the socket file descriptors.
+/// Can be retrieved and modified on a per-request basis, depending on the syscall
 static std::unordered_map<int, proxybind_header_t> socket_headers;
 
 void
@@ -69,4 +71,45 @@ post_sys_connect(pid_t pid, struct user_regs_struct *regs)
 	socket_headers[sockfd].sockaddr_len = sockaddr_len;
 
 	log("[proxybind] bound new sockaddr for socket '%d' after successful SYS_connect (family: %d, len: %d)\n", sockfd, sockaddr.sa_family, sockaddr_len);
+}
+
+void
+pre_sys_sendto(pid_t pid, struct user_regs_struct *regs)
+{
+	int sockfd;
+	long buf;
+	size_t len;
+	int flags;
+	long sockaddr_ptr;
+	struct sockaddr sockaddr;
+	size_t sockaddr_len;
+	proxybind_header_t header;
+	
+	sockfd = (int)regs->rdi;
+	buf = regs->rsi;
+	len = (size_t)regs->rdx;
+	flags = (int)regs->r10;
+	sockaddr_ptr = regs->r8;
+	sockaddr_len = regs->r9;
+
+	if (ptrace_read(pid, sockaddr_ptr, &sockaddr, sizeof(sockaddr)) == -1) {
+		log("[proxybind] error: failed to read sockaddr on SYS_sendto");
+		perror("");
+		return;
+	}
+
+	if (socket_headers.find(sockfd) == socket_headers.end()) {
+		log("[proxybind] error: sockfd '%d' is not present in the socket_headers (SYS_sendto)\n", sockfd);
+		return;
+	}
+
+	header = socket_headers[sockfd];
+
+	log("[proxybind] intercepted 'SYS_sendto' for sockfd '%d' with message length '%lu'\n", sockfd, len);
+}
+
+void
+post_sys_sendto(pid_t pid, struct user_regs_struct *regs)
+{
+	
 }

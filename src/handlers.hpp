@@ -28,4 +28,10 @@ pre_sys_connect(pid_t pid, struct user_regs_struct *regs);
 void
 post_sys_connect(pid_t pid, struct user_regs_struct *regs);
 
+void
+pre_sys_sendto(pid_t pid, struct user_regs_struct *regs);
+
+void
+post_sys_sendto(pid_t pid, struct user_regs_struct *regs);
+
 #endif

@@ -40,6 +40,9 @@ syscall_listener(pid_t pid)
 		case SYS_connect:
 			pre_sys_connect(pid, &regs);
 			break;
+		case SYS_sendto:
+			pre_sys_sendto(pid, &regs);
+			break;
 		}
 
 		/* Update regs after pre-syscall handlers */
@@ -61,6 +64,9 @@ syscall_listener(pid_t pid)
 			break;
 		case SYS_connect:
 			post_sys_connect(pid, &regs);
+			break;
+		case SYS_sendto:
+			post_sys_sendto(pid, &regs);
 			break;
 		}
 
