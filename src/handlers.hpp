@@ -6,13 +6,17 @@
 #include <sys/user.h>
 #include <time.h>
 
-typedef struct proxybind_header_t {
+typedef struct proxybind_sockinfo_t {
 	int sockfd;
 	int socktype;
 	pid_t pid;
 	clock_t creation_time;
 	struct sockaddr sockaddr;
 	socklen_t sockaddr_len;
+} proxybind_sockinfo_t;
+
+typedef struct proxybind_header_t {
+	proxybind_sockinfo_t sockinfo;
 	size_t payload_size;
 } proxybind_header_t;
 

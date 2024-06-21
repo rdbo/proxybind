@@ -5,7 +5,7 @@
 
 /// Cached information about the socket file descriptors.
 /// Can be retrieved and modified on a per-request basis, depending on the syscall
-static std::unordered_map<int, proxybind_header_t> socket_headers;
+static std::unordered_map<int, proxybind_sockinfo_t> sockinfo_list;
 
 void
 pre_sys_socket(pid_t pid, struct user_regs_struct *regs)
@@ -17,23 +17,22 @@ void
 post_sys_socket(pid_t pid, struct user_regs_struct *regs)
 {
 	int sockfd;
-	proxybind_header_t header;
+	proxybind_sockinfo_t sockinfo;
 
 	sockfd = (int)regs->rax;
 	if (sockfd == -1)
 		return;
 	
-	header.sockfd = sockfd;
-	header.socktype = regs->rsi ; /* NOTE: All registers except rcx, r11, rax are preserved during the syscall, so this is reliable */
-	header.pid = pid;
-	header.creation_time = clock();
-	header.sockaddr = { 0 };
-	header.sockaddr_len = 0;
-	header.payload_size = 0;
+	sockinfo.sockfd = sockfd;
+	sockinfo.socktype = regs->rsi ; /* NOTE: All registers except rcx, r11, rax are preserved during the syscall, so this is reliable */
+	sockinfo.pid = pid;
+	sockinfo.creation_time = clock();
+	sockinfo.sockaddr = { 0 };
+	sockinfo.sockaddr_len = 0;
 
-	socket_headers.insert_or_assign(sockfd, header);
-	log("[proxybind] created socket header (sockfd: %d, socktype: %d, pid: %d, creation_time: %ld) after successfull SYS_socket\n",
-	    sockfd, header.socktype, header.pid, header.creation_time);
+	sockinfo_list.insert_or_assign(sockfd, sockinfo);
+	log("[proxybind] created socket sockinfo (sockfd: %d, socktype: %d, pid: %d, creation_time: %ld) after successfull SYS_socket\n",
+	    sockfd, sockinfo.socktype, sockinfo.pid, sockinfo.creation_time);
 
 	return;
 }
@@ -67,8 +66,8 @@ post_sys_connect(pid_t pid, struct user_regs_struct *regs)
 		return;
 	}
 
-	socket_headers[sockfd].sockaddr = sockaddr;
-	socket_headers[sockfd].sockaddr_len = sockaddr_len;
+	sockinfo_list[sockfd].sockaddr = sockaddr;
+	sockinfo_list[sockfd].sockaddr_len = sockaddr_len;
 
 	log("[proxybind] bound new sockaddr for socket '%d' after successful SYS_connect (family: %d, len: %d)\n", sockfd, sockaddr.sa_family, sockaddr_len);
 }
@@ -98,12 +97,13 @@ pre_sys_sendto(pid_t pid, struct user_regs_struct *regs)
 		return;
 	}
 
-	if (socket_headers.find(sockfd) == socket_headers.end()) {
-		log("[proxybind] error: sockfd '%d' is not present in the socket_headers (SYS_sendto)\n", sockfd);
+	if (sockinfo_list.find(sockfd) == sockinfo_list.end()) {
+		log("[proxybind] error: sockfd '%d' is not present in the sockinfo_list (SYS_sendto)\n", sockfd);
 		return;
 	}
 
-	header = socket_headers[sockfd];
+	header.sockinfo = sockinfo_list[sockfd];
+	header.payload_size = buf;
 
 	log("[proxybind] intercepted 'SYS_sendto' for sockfd '%d' with message length '%lu'\n", sockfd, len);
 }
