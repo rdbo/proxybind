@@ -82,7 +82,6 @@ main(int argc, char **argv, char **envp)
 
 		log("waiting for tracer...\n");
 		ptrace(PTRACE_TRACEME, 0, NULL, NULL);
-		raise(SIGSTOP);
 
 		if (argc > 2) {
 			program_argv = &argv[2];
