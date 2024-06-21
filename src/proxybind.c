@@ -24,12 +24,12 @@ syscall_listener(pid_t pid)
 	for (;;) {
 		/* Step to syscall */
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
-		waitpid(pid, &status, 0);
+		waitpid(-1, &status, 0);
 		if (WIFEXITED(status))
 			break;
 
 		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
-		syscall_num = (int)regs.rax;
+		syscall_num = (int)regs.orig_rax;
 		log("[*] caught syscall: %d\n", syscall_num);
 
 		/* Pre-syscall handlers */
@@ -44,7 +44,7 @@ syscall_listener(pid_t pid)
 
 		/* Run syscall */
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
-		waitpid(pid, &status, 0);
+		waitpid(-1, &status, 0);
 		if (WIFEXITED(status))
 			break;
 
@@ -64,7 +64,7 @@ syscall_listener(pid_t pid)
 }
 
 int
-main(int argc, char **argv)
+main(int argc, char **argv, char **envp)
 {
 	pid_t pid;
 	printf("[proxybind]\n");
@@ -74,22 +74,30 @@ main(int argc, char **argv)
 		return -1;
 	}
 
+	log("main pid: %d\n", getpid());
+
 	pid = fork();
 	if (pid == 0) {
 		char **program_argv = NULL;
 
 		log("waiting for tracer...\n");
-		ptrace(PT_TRACE_ME, 0, NULL, NULL);
+		ptrace(PTRACE_TRACEME, 0, NULL, NULL);
 		raise(SIGSTOP);
 
 		if (argc > 2) {
 			program_argv = &argv[2];
 		}
 
-		execve(argv[1], program_argv, NULL);
+		execve(argv[1], program_argv, envp);
 	} else {
-		waitpid(pid, NULL, 0);
-		log("tracer attached\n");
+		int status;
+
+		waitpid(pid, &status, 0);
+		log("tracer attached to child pid: %d\n", pid);
+
+		ptrace(PTRACE_SETOPTIONS, pid, NULL,
+		       PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC | PTRACE_O_TRACECLONE |
+		       PTRACE_O_TRACESECCOMP | PTRACE_O_TRACEVFORK);
 
 		syscall_listener(pid);
 	}
