@@ -26,6 +26,7 @@ post_sys_socket(pid_t pid, struct user_regs_struct *regs)
 	header.pid = pid;
 	header.creation_time = clock();
 	header.sockaddr = { 0 };
+	header.sockaddr_len = 0;
 	header.payload_size = 0;
 
 	socket_headers.insert_or_assign(sockfd, header);
@@ -46,6 +47,7 @@ post_sys_connect(pid_t pid, struct user_regs_struct *regs)
 {
 	int sockfd;
 	long sockaddr_ptr;
+	socklen_t sockaddr_len;
 	struct sockaddr sockaddr;
 	int result;
 
@@ -55,6 +57,7 @@ post_sys_connect(pid_t pid, struct user_regs_struct *regs)
 
 	sockfd = (int)regs->rdi;
 	sockaddr_ptr = regs->rsi;
+	sockaddr_len = (socklen_t)regs->rdx;
 
 	if (ptrace_read(pid, sockaddr_ptr, &sockaddr, sizeof(sockaddr)) == -1) {
 		log("[proxybind] error: failed to read sockaddr on SYS_connect");
@@ -63,6 +66,7 @@ post_sys_connect(pid_t pid, struct user_regs_struct *regs)
 	}
 
 	socket_headers[sockfd].sockaddr = sockaddr;
+	socket_headers[sockfd].sockaddr_len = sockaddr_len;
 
-	log("[proxybind] bound new sockaddr for socket '%d' with family '%d' after successful SYS_connect\n", sockfd, sockaddr.sa_family);
+	log("[proxybind] bound new sockaddr for socket '%d' after successful SYS_connect (family: %d, len: %d)\n", sockfd, sockaddr.sa_family, sockaddr_len);
 }

@@ -12,6 +12,7 @@ typedef struct proxybind_header_t {
 	pid_t pid;
 	clock_t creation_time;
 	struct sockaddr sockaddr;
+	socklen_t sockaddr_len;
 	size_t payload_size;
 } proxybind_header_t;
 
