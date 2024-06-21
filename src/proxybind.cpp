@@ -30,12 +30,15 @@ syscall_listener(pid_t pid)
 
 		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
 		syscall_num = (int)regs.orig_rax;
-		log("[*] caught syscall: %d\n", syscall_num);
+		/* log("[proxybind] caught syscall: %d\n", syscall_num); */
 
 		/* Pre-syscall handlers */
 		switch (syscall_num) {
 		case SYS_socket:
 			pre_sys_socket(pid, &regs);
+			break;
+		case SYS_connect:
+			pre_sys_connect(pid, &regs);
 			break;
 		}
 
@@ -49,12 +52,15 @@ syscall_listener(pid_t pid)
 			break;
 
 		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
-		log("[*] syscall ret: %ld\n", regs.rax);
+		/* log("[proxybind] syscall ret: %ld\n", regs.rax); */
 
 		/* Post-syscall handlers */
 		switch (syscall_num) {
 		case SYS_socket:
 			post_sys_socket(pid, &regs);
+			break;
+		case SYS_connect:
+			post_sys_connect(pid, &regs);
 			break;
 		}
 
@@ -74,13 +80,13 @@ main(int argc, char **argv, char **envp)
 		return -1;
 	}
 
-	log("main pid: %d\n", getpid());
+	log("[proxybind] main pid: %d\n", getpid());
 
 	pid = fork();
 	if (pid == 0) {
 		char **program_argv = NULL;
 
-		log("waiting for tracer...\n");
+		log("[proxybind] waiting for tracer...\n");
 		ptrace(PTRACE_TRACEME, 0, NULL, NULL);
 
 		if (argc > 2) {
@@ -92,7 +98,7 @@ main(int argc, char **argv, char **envp)
 		int status;
 
 		waitpid(pid, &status, 0);
-		log("tracer attached to child pid: %d\n", pid);
+		log("[proxybind] tracer attached to child pid: %d\n", pid);
 
 		ptrace(PTRACE_SETOPTIONS, pid, NULL,
 		       PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC | PTRACE_O_TRACECLONE |
