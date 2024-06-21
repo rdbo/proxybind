@@ -29,7 +29,7 @@ post_sys_socket(pid_t pid, struct user_regs_struct *regs)
 	header.payload_size = 0;
 
 	socket_headers.insert_or_assign(sockfd, header);
-	log("[proxybind] created socket header (sockfd: %d, socktype: %d, pid: %d, creation_time: %ld)\n",
+	log("[proxybind] created socket header (sockfd: %d, socktype: %d, pid: %d, creation_time: %ld) after successfull SYS_socket\n",
 	    sockfd, header.socktype, header.pid, header.creation_time);
 
 	return;
