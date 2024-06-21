@@ -76,7 +76,7 @@ syscall_listener(pid_t pid)
 }
 
 int
-main(int argc, char **argv, char **envp)
+main(int argc, char **argv)
 {
 	pid_t pid;
 	printf("[proxybind]\n");
@@ -107,7 +107,7 @@ main(int argc, char **argv, char **envp)
 		}
 		*/
 
-		execve(argv[1], program_argv, envp);
+		execvp(argv[1], program_argv);
 	} else {
 		int status;
 
