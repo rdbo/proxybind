@@ -1,5 +1,5 @@
 proxybind: setup
-	$(CC) -o build/proxybind src/*.c
+	$(CXX) -o build/proxybind src/*.cpp
 	$(CC) -o build/dummyclient tests/dummyclient.c
 
 setup:

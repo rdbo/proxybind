@@ -11,8 +11,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
-#include "utils.h"
-#include "handlers.h"
+#include "utils.hpp"
+#include "handlers.hpp"
 
 void
 syscall_listener(pid_t pid)
