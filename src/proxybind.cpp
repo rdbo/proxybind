@@ -99,6 +99,14 @@ main(int argc, char **argv, char **envp)
 			program_argv = &argv[2];
 		}
 
+		/*
+		// Check if the tracee's children will also be intercepted by ptrace
+		pid_t subchild_pid = fork();
+		if (subchild_pid == 0) {
+			execve(argv[1], program_argv, envp);
+		}
+		*/
+
 		execve(argv[1], program_argv, envp);
 	} else {
 		int status;
@@ -108,7 +116,7 @@ main(int argc, char **argv, char **envp)
 
 		ptrace(PTRACE_SETOPTIONS, pid, NULL,
 		       PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC | PTRACE_O_TRACECLONE |
-		       PTRACE_O_TRACESECCOMP | PTRACE_O_TRACEVFORK);
+		       PTRACE_O_TRACESECCOMP | PTRACE_O_TRACEVFORK | PTRACE_O_EXITKILL);
 
 		syscall_listener(pid);
 	}
