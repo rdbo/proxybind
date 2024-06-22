@@ -17,7 +17,15 @@ main()
 	struct sockaddr_in server;
 	char buf[5] = { 0 };
 	ssize_t nbytes;
-	
+	pid_t pid;
+
+	/* Fork in order to test proxybind's capabilities of intercepting sub-child processes */
+	pid = fork();
+	if (pid == -1)
+		die("failed to fork");
+	else if (pid != 0)
+		return 0;
+
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd == -1) {
 		die("failed to create socket");
