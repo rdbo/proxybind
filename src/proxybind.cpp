@@ -1,6 +1,5 @@
 #include <netinet/in.h>
 #include <unistd.h>
-#include <pthread.h>
 #include <signal.h>
 #include <syscall.h>
 #include <arpa/inet.h>
@@ -14,6 +13,17 @@
 #include <memory.h>
 #include "utils.hpp"
 #include "handlers.hpp"
+#include <thread>
+
+void
+syscall_listener(pid_t pid);
+
+void
+process_handler(pid_t childpid)
+{
+	log("[proxybind] started handler for child process '%d'\n", childpid);
+	syscall_listener(childpid);
+}
 
 void
 syscall_listener(pid_t pid)
@@ -34,7 +44,7 @@ syscall_listener(pid_t pid)
 
 		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
 		syscall_num = (int)regs.orig_rax;
-		log("[proxybind] caught syscall: %d\n", syscall_num);
+		log("[proxybind] caught syscall: %d (process: %d)\n", syscall_num, pid);
 
 		/* Pre-syscall handlers */
 		switch (syscall_num) {
@@ -59,10 +69,21 @@ syscall_listener(pid_t pid)
 			ptrace(PTRACE_DETACH, pid, NULL, NULL);
 			log("[proxybind] detached from process '%d' (reason: exited)\n", pid);
 			break;
+		} else if (WIFSTOPPED(status)) {
+			switch (status >> 8) {
+			case (SIGTRAP | (PTRACE_EVENT_FORK << 8)):
+				pid_t childpid;
+				ptrace(PTRACE_GETEVENTMSG, pid, NULL, &childpid);
+				log("[proxybind] process '%d' forked (new child: %d)\n", pid, childpid);
+
+				auto thread = std::thread(process_handler, childpid);
+				thread.detach();
+				break;
+			}
 		}
 
 		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
-		log("[proxybind] syscall ret: %ld\n", regs.rax);
+		log("[proxybind] syscall ret: %ld (process: %d)\n", regs.rax, pid);
 
 		/* Post-syscall handlers */
 		switch (syscall_num) {
@@ -117,7 +138,7 @@ main(int argc, char **argv)
 		       PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC | PTRACE_O_TRACECLONE |
 		       PTRACE_O_TRACESECCOMP | PTRACE_O_TRACEVFORK | PTRACE_O_EXITKILL);
 
-		syscall_listener(pid);
+		process_handler(pid);
 	}
 
 	return 0;
