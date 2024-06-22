@@ -66,6 +66,8 @@ syscall_listener(pid_t pid)
 		} else if (WIFSTOPPED(status)) {
 			switch ((status >> 8) & 0xffff) {
 			case (SIGTRAP | (PTRACE_EVENT_FORK << 8)):
+			case (SIGTRAP | (PTRACE_EVENT_VFORK << 8)):
+			case (SIGTRAP | (PTRACE_EVENT_CLONE << 8)):
 				pid_t childpid;
 				ptrace(PTRACE_GETEVENTMSG, pid, NULL, &childpid);
 				log("[proxybind] (tracee pid: %d) process forked (new child: %d)\n", pid, childpid);
