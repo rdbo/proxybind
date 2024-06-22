@@ -1,5 +1,6 @@
 #include <netinet/in.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <signal.h>
 #include <syscall.h>
 #include <arpa/inet.h>
@@ -104,14 +105,6 @@ main(int argc, char **argv)
 		if (argc > 2) {
 			program_argv = &argv[2];
 		}
-
-		/*
-		// Check if the tracee's children will also be intercepted by ptrace
-		pid_t subchild_pid = fork();
-		if (subchild_pid == 0) {
-			execve(argv[1], program_argv, envp);
-		}
-		*/
 
 		execvp(argv[1], program_argv);
 	} else {
