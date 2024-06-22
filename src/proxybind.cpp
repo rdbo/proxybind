@@ -31,7 +31,7 @@ syscall_listener(pid_t pid)
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 		waitpid(pid, &status, 0);
 		if (WIFEXITED(status)) {
-			ptrace(PTRACE_DETACH, pid, NULL, NULL);
+			ptrace(PTRACE_DETACH, pid, NULL, SIGKILL);
 			log("[proxybind] (tracee pid: %d) detached from process (reason: exited)\n", pid);
 			break;
 		}
@@ -64,11 +64,13 @@ syscall_listener(pid_t pid)
 			log("[proxybind] (tracee pid: %d) detached from process (reason: exited)\n", pid);
 			break;
 		} else if (WIFSTOPPED(status)) {
-			switch (status >> 8) {
+			switch ((status >> 8) & 0xffff) {
 			case (SIGTRAP | (PTRACE_EVENT_FORK << 8)):
 				pid_t childpid;
 				ptrace(PTRACE_GETEVENTMSG, pid, NULL, &childpid);
 				log("[proxybind] (tracee pid: %d) process forked (new child: %d)\n", pid, childpid);
+
+				waitpid(childpid, NULL, 0); // Wait for child (should be on SIGSTOP state when created)
 
 				auto thread = std::thread(syscall_listener, childpid);
 				subthreads.push_back(std::move(thread));
