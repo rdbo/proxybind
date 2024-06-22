@@ -30,7 +30,7 @@ syscall_listener(pid_t pid)
 
 		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
 		syscall_num = (int)regs.orig_rax;
-		/* log("[proxybind] caught syscall: %d\n", syscall_num); */
+		log("[proxybind] caught syscall: %d\n", syscall_num);
 
 		/* Pre-syscall handlers */
 		switch (syscall_num) {
@@ -55,7 +55,7 @@ syscall_listener(pid_t pid)
 			break;
 
 		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
-		/* log("[proxybind] syscall ret: %ld\n", regs.rax); */
+		log("[proxybind] syscall ret: %ld\n", regs.rax);
 
 		/* Post-syscall handlers */
 		switch (syscall_num) {
