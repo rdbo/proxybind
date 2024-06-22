@@ -14,6 +14,7 @@
 #include "utils.hpp"
 #include "handlers.hpp"
 #include <thread>
+#include <vector>
 
 void
 syscall_listener(pid_t pid);
@@ -31,6 +32,7 @@ syscall_listener(pid_t pid)
 	int status;
 	int syscall_num;
 	struct user_regs_struct regs;
+	std::vector<std::thread> subthreads = {};
 
 	for (;;) {
 		/* Step to syscall */
@@ -77,7 +79,8 @@ syscall_listener(pid_t pid)
 				log("[proxybind] (tracee pid: %d) process forked (new child: %d)\n", pid, childpid);
 
 				auto thread = std::thread(process_handler, childpid);
-				thread.detach();
+				subthreads.push_back(std::move(thread));
+
 				break;
 			}
 		}
@@ -100,6 +103,10 @@ syscall_listener(pid_t pid)
 
 		/* Update regs after post-syscall handlers */
 		ptrace(PTRACE_SETREGS, pid, NULL, &regs);
+	}
+
+	for (auto &thread : subthreads) {
+		thread.join();
 	}
 }
 

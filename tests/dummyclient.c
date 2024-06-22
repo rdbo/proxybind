@@ -23,8 +23,10 @@ main()
 	pid = fork();
 	if (pid == -1)
 		die("failed to fork");
-	else if (pid != 0)
+	else if (pid != 0) {
+		printf("exiting main process after fork...\n");
 		return 0;
+	}
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd == -1) {
