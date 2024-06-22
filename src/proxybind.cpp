@@ -17,22 +17,14 @@
 #include <vector>
 
 void
-syscall_listener(pid_t pid);
-
-void
-process_handler(pid_t childpid)
-{
-	log("[proxybind] started handler for child process '%d'\n", childpid);
-	syscall_listener(childpid);
-}
-
-void
 syscall_listener(pid_t pid)
 {
 	int status;
 	int syscall_num;
 	struct user_regs_struct regs;
 	std::vector<std::thread> subthreads = {};
+
+	log("[proxybind] started listener for process '%d'\n", pid);
 
 	for (;;) {
 		/* Step to syscall */
@@ -78,7 +70,7 @@ syscall_listener(pid_t pid)
 				ptrace(PTRACE_GETEVENTMSG, pid, NULL, &childpid);
 				log("[proxybind] (tracee pid: %d) process forked (new child: %d)\n", pid, childpid);
 
-				auto thread = std::thread(process_handler, childpid);
+				auto thread = std::thread(syscall_listener, childpid);
 				subthreads.push_back(std::move(thread));
 
 				break;
@@ -145,7 +137,7 @@ main(int argc, char **argv)
 		       PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC | PTRACE_O_TRACECLONE |
 		       PTRACE_O_TRACESECCOMP | PTRACE_O_TRACEVFORK | PTRACE_O_EXITKILL);
 
-		process_handler(pid);
+		syscall_listener(pid);
 	}
 
 	return 0;
