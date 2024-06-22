@@ -74,6 +74,7 @@ syscall_listener(pid_t pid)
 
 				// The syscall didn't finish running yet, so we run 'PTRACE_SYSCALL' again to finish it
 				ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+				waitpid(pid, NULL, 0);
 
 				waitpid(childpid, NULL, 0); // Wait for child (should be on SIGSTOP state when created)
 
