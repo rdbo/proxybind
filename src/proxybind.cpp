@@ -24,9 +24,12 @@ syscall_listener(pid_t pid)
 	for (;;) {
 		/* Step to syscall */
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
-		waitpid(-1, &status, 0);
-		if (WIFEXITED(status))
+		waitpid(pid, &status, 0);
+		if (WIFEXITED(status)) {
+			ptrace(PTRACE_DETACH, pid, NULL, NULL);
+			log("[proxybind] detached from process '%d' (reason: exited)\n", pid);
 			break;
+		}
 
 		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
 		syscall_num = (int)regs.orig_rax;
@@ -50,9 +53,12 @@ syscall_listener(pid_t pid)
 
 		/* Run syscall */
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
-		waitpid(-1, &status, 0);
-		if (WIFEXITED(status))
+		waitpid(pid, &status, 0);
+		if (WIFEXITED(status)) {
+			ptrace(PTRACE_DETACH, pid, NULL, NULL);
+			log("[proxybind] detached from process '%d' (reason: exited)\n", pid);
 			break;
+		}
 
 		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
 		log("[proxybind] syscall ret: %ld\n", regs.rax);
