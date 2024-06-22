@@ -38,13 +38,13 @@ syscall_listener(pid_t pid)
 		waitpid(pid, &status, 0);
 		if (WIFEXITED(status)) {
 			ptrace(PTRACE_DETACH, pid, NULL, NULL);
-			log("[proxybind] detached from process '%d' (reason: exited)\n", pid);
+			log("[proxybind] (tracee pid: %d) detached from process (reason: exited)\n", pid);
 			break;
 		}
 
 		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
 		syscall_num = (int)regs.orig_rax;
-		log("[proxybind] caught syscall: %d (process: %d)\n", syscall_num, pid);
+		log("[proxybind] (tracee pid: %d) caught syscall: %d\n", pid, syscall_num);
 
 		/* Pre-syscall handlers */
 		switch (syscall_num) {
@@ -67,14 +67,14 @@ syscall_listener(pid_t pid)
 		waitpid(pid, &status, 0);
 		if (WIFEXITED(status)) {
 			ptrace(PTRACE_DETACH, pid, NULL, NULL);
-			log("[proxybind] detached from process '%d' (reason: exited)\n", pid);
+			log("[proxybind] (tracee pid: %d) detached from process (reason: exited)\n", pid);
 			break;
 		} else if (WIFSTOPPED(status)) {
 			switch (status >> 8) {
 			case (SIGTRAP | (PTRACE_EVENT_FORK << 8)):
 				pid_t childpid;
 				ptrace(PTRACE_GETEVENTMSG, pid, NULL, &childpid);
-				log("[proxybind] process '%d' forked (new child: %d)\n", pid, childpid);
+				log("[proxybind] (tracee pid: %d) process forked (new child: %d)\n", pid, childpid);
 
 				auto thread = std::thread(process_handler, childpid);
 				thread.detach();
@@ -83,7 +83,7 @@ syscall_listener(pid_t pid)
 		}
 
 		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
-		log("[proxybind] syscall ret: %ld (process: %d)\n", regs.rax, pid);
+		log("[proxybind] (tracee pid: %d) syscall ret: %ld\n", pid, regs.rax);
 
 		/* Post-syscall handlers */
 		switch (syscall_num) {
