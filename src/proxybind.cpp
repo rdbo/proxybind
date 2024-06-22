@@ -24,7 +24,7 @@ syscall_listener(pid_t pid)
 	struct user_regs_struct regs;
 	std::vector<std::thread> subthreads = {};
 
-	log("[proxybind] started listener for process '%d'\n", pid);
+	log("[proxybind] started listener for process '%d' (tracer pid: %d)\n", pid, getpid());
 
 	for (;;) {
 		/* Step to syscall */
@@ -60,7 +60,7 @@ syscall_listener(pid_t pid)
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 		waitpid(pid, &status, 0);
 		if (WIFEXITED(status)) {
-			ptrace(PTRACE_DETACH, pid, NULL, NULL);
+			ptrace(PTRACE_DETACH, pid, NULL, SIGKILL);
 			log("[proxybind] (tracee pid: %d) detached from process (reason: exited)\n", pid);
 			break;
 		} else if (WIFSTOPPED(status)) {
@@ -69,6 +69,9 @@ syscall_listener(pid_t pid)
 				pid_t childpid;
 				ptrace(PTRACE_GETEVENTMSG, pid, NULL, &childpid);
 				log("[proxybind] (tracee pid: %d) process forked (new child: %d)\n", pid, childpid);
+
+				// The syscall didn't finish running yet, so we run 'PTRACE_SYSCALL' again to finish it
+				ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 
 				waitpid(childpid, NULL, 0); // Wait for child (should be on SIGSTOP state when created)
 
