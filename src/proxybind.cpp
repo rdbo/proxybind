@@ -13,27 +13,25 @@
 #include <memory.h>
 #include "utils.hpp"
 #include "handlers.hpp"
-#include <thread>
-#include <vector>
 
 void
-syscall_listener(pid_t pid)
+syscall_listener()
 {
 	int status;
 	int syscall_num;
 	struct user_regs_struct regs;
-	std::vector<std::thread> subthreads = {};
-
-	log("[proxybind] started listener for process '%d' (tracer pid: %d)\n", pid, getpid());
+	pid_t pid;
 
 	for (;;) {
-		/* Step to syscall */
-		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
-		waitpid(pid, &status, 0);
+		pid = waitpid(-1, &status, 0);
+		if (pid == -1) {
+			log("[proxybind] no tracees left, stopping syscall listener...\n");
+			break;
+		}
 		if (WIFEXITED(status)) {
 			ptrace(PTRACE_DETACH, pid, NULL, SIGKILL);
 			log("[proxybind] (tracee pid: %d) detached from process (reason: exited)\n", pid);
-			break;
+			continue;
 		}
 
 		ptrace(PTRACE_GETREGS, pid, NULL, &regs);
@@ -56,20 +54,22 @@ syscall_listener(pid_t pid)
 		/* Update regs after pre-syscall handlers */
 		ptrace(PTRACE_SETREGS, pid, NULL, &regs);
 
-		/* Run syscall */
+		/* Run syscall-exit */
 		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 		waitpid(pid, &status, 0);
 		if (WIFEXITED(status)) {
 			ptrace(PTRACE_DETACH, pid, NULL, SIGKILL);
 			log("[proxybind] (tracee pid: %d) detached from process (reason: exited)\n", pid);
-			break;
+			continue;
 		} else if (WIFSTOPPED(status)) {
 			switch ((status >> 8) & 0xffff) {
 			case (SIGTRAP | (PTRACE_EVENT_FORK << 8)):
 			case (SIGTRAP | (PTRACE_EVENT_VFORK << 8)):
 			case (SIGTRAP | (PTRACE_EVENT_CLONE << 8)):
 				pid_t childpid;
+				pid_t copy_pid = pid; // i do not know why this is needed, but after PTRACE_GETEVENTMSG, pid is being set to zero somehow? TODO: Fix this
 				ptrace(PTRACE_GETEVENTMSG, pid, NULL, &childpid);
+				pid = copy_pid;
 				log("[proxybind] (tracee pid: %d) process forked (new child: %d)\n", pid, childpid);
 
 				// The syscall didn't finish running yet, so we run 'PTRACE_SYSCALL' again to finish it
@@ -77,9 +77,7 @@ syscall_listener(pid_t pid)
 				waitpid(pid, NULL, 0);
 
 				waitpid(childpid, NULL, 0); // Wait for child (should be on SIGSTOP state when created)
-
-				auto thread = std::thread(syscall_listener, childpid);
-				subthreads.push_back(std::move(thread));
+				ptrace(PTRACE_SYSCALL, childpid, NULL, NULL);
 
 				break;
 			}
@@ -103,10 +101,9 @@ syscall_listener(pid_t pid)
 
 		/* Update regs after post-syscall handlers */
 		ptrace(PTRACE_SETREGS, pid, NULL, &regs);
-	}
 
-	for (auto &thread : subthreads) {
-		thread.join();
+		/* Step to next syscall-enter */
+		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 	}
 }
 
@@ -145,8 +142,12 @@ main(int argc, char **argv)
 		       PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC | PTRACE_O_TRACECLONE |
 		       PTRACE_O_TRACESECCOMP | PTRACE_O_TRACEVFORK | PTRACE_O_EXITKILL);
 
-		syscall_listener(pid);
+		/* Step to syscall */
+		ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+		syscall_listener();
 	}
+
+	log("[proxybind] finished");
 
 	return 0;
 }
