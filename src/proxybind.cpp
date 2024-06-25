@@ -147,7 +147,7 @@ main(int argc, char **argv)
 		syscall_listener();
 	}
 
-	log("[proxybind] finished");
+	log("[proxybind] finished\n");
 
 	return 0;
 }
