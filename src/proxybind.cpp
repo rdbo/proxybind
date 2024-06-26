@@ -66,10 +66,10 @@ syscall_listener()
 			case (SIGTRAP | (PTRACE_EVENT_FORK << 8)):
 			case (SIGTRAP | (PTRACE_EVENT_VFORK << 8)):
 			case (SIGTRAP | (PTRACE_EVENT_CLONE << 8)):
+				long event;
 				pid_t childpid;
-				pid_t copy_pid = pid; // i do not know why this is needed, but after PTRACE_GETEVENTMSG, pid is being set to zero somehow? TODO: Fix this
-				ptrace(PTRACE_GETEVENTMSG, pid, NULL, &childpid);
-				pid = copy_pid;
+				ptrace(PTRACE_GETEVENTMSG, pid, NULL, &event);
+				childpid = (pid_t)event;
 				log("[proxybind] (tracee pid: %d) process forked (new child: %d)\n", pid, childpid);
 
 				// The syscall didn't finish running yet, so we run 'PTRACE_SYSCALL' again to finish it
